@@ -3,7 +3,9 @@ name = "analista-cvm"
 version = "0.1.0"
 description = "Agente que analisa demonstrações financeiras de companhias abertas com os dados abertos da CVM"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.3.6",
+]
 
 [project.scripts]
 analista = "analista.__main__:main"
