@@ -14,7 +14,8 @@ def conectar(config: Config) -> psycopg.Connection:
         dbname=config.db_name,
         user=config.db_user,
         password=config.db_password,
+        autocommit=True,
     )
 
-def criar_eschema(conexao: psycopg.Connection) -> None:
+def criar_esquema(conexao: psycopg.Connection) -> None:
     conexao.execute(ESQUEMA.read_text(encoding="utf-8"))
