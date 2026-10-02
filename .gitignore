@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+dist/
+
+# Segredos e configuração local
+.env
+
+# Arquivos baixados da CVM
+data/
+
+# IDE
+.idea/
+.vscode/
