@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import psycopg
 
 from analista.agente.ferramentas import DESCRICOES, executar, montar_funcoes
@@ -36,13 +38,26 @@ Cálculos
 class LimiteDePassos(Exception):
     """O agente não chegou a uma resposta dentro do limite de passos."""
 
-def executar_agente(config: Config, conexao: psycopg.Connection, pergunta: str) -> str:
+@dataclass
+class Chamada:
+    nome: str
+    argumentos: str
+    resultado: str
+
+@dataclass
+class Execucao:
+    resposta: str
+    chamadas: list[Chamada]
+
+
+def executar_agente(config: Config, conexao: psycopg.Connection, pergunta: str) -> Execucao:
     mensagens: list[dict] = [
         {"role": "system", "content": INSTRUCOES},
         {"role": "user", "content": pergunta},
     ]
 
     funcoes = montar_funcoes(conexao)
+    feitas: list[Chamada] = []
 
     for _ in range(MAX_PASSOS):
         resposta = conversar(config, mensagens, DESCRICOES)
@@ -50,13 +65,13 @@ def executar_agente(config: Config, conexao: psycopg.Connection, pergunta: str) 
         chamadas = resposta.get("tool_calls")
 
         if not chamadas:
-            return resposta["content"]
+            return Execucao(resposta["content"] or "", feitas)
 
         for chamada in chamadas:
             nome = chamada["function"]["name"]
             argumentos = chamada["function"]["arguments"]
             resultado = executar(funcoes, nome, argumentos)
-            print(f"  [ferramenta] {nome}({argumentos}) -> {resultado}")
+            feitas.append(Chamada(nome, argumentos, resultado))
             mensagens.append({"role": "tool", "tool_call_id": chamada["id"], "content": resultado})
 
     raise LimiteDePassos(f"sem resposta final após {MAX_PASSOS} passos")
