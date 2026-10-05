@@ -1,17 +1,38 @@
 import json
+import random
+import re
 import time
 import urllib.error
 import urllib.request
-import random
 
 from analista.config import Config
 
-
 TENTATIVAS = 4
 STATUS_TRANSITORIOS = {429, 500, 502, 503, 504}
+ESPERA_MAXIMA = 60
+
 
 class ErroLLM(Exception):
     """Falha ao conversar com o modelo."""
+
+
+def _recuo(tentativa: int) -> float:
+    return 2**tentativa + random.random()
+
+
+def _espera(erro: urllib.error.HTTPError, detalhe: str, tentativa: int) -> float:
+    """Segundos até a próxima tentativa: o que o servidor pedir ou, sem pedido, o recuo."""
+    cabecalho = erro.headers.get("Retry-After", "")
+    pedido = re.search(r"(?:retry|try again) in ([0-9.]+)s", detalhe)
+    try:
+        if cabecalho:
+            return float(cabecalho) + 1
+        if pedido:
+            return float(pedido.group(1)) + 1
+    except ValueError:
+        pass
+    return _recuo(tentativa)
+
 
 def conversar(config: Config, mensagens: list[dict], ferramentas: list[dict] | None = None) -> dict:
     """Envia a conversa inteira e devolve a mensagem de resposta do modelo."""
@@ -25,8 +46,9 @@ def conversar(config: Config, mensagens: list[dict], ferramentas: list[dict] | N
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {config.llm_chave}",
+            "User-Agent": "analista-cvm/0.1",
         },
-        method="POST"
+        method="POST",
     )
 
     for tentativa in range(TENTATIVAS):
@@ -34,14 +56,16 @@ def conversar(config: Config, mensagens: list[dict], ferramentas: list[dict] | N
         try:
             with urllib.request.urlopen(requisicao, timeout=60) as resposta:
                 dados = json.load(resposta)
-            break
+            return dados["choices"][0]["message"]
         except urllib.error.HTTPError as erro:
             detalhe = erro.read().decode("utf-8", errors="replace")
-            raise ErroLLM(f"HTTP {erro.code}: {detalhe}") from erro
+            if erro.code not in STATUS_TRANSITORIOS or ultima:
+                raise ErroLLM(f"HTTP {erro.code}: {detalhe}") from erro
+            espera = _espera(erro, detalhe, tentativa)
         except (urllib.error.URLError, TimeoutError) as erro:
             if ultima:
                 raise ErroLLM(f"falha de rede: {erro}") from erro
+            espera = _recuo(tentativa)
+        time.sleep(min(espera, ESPERA_MAXIMA))
 
-        time.sleep(2 ** tentativa + random.random())
-
-    return dados["choices"][0]["message"]
+    raise ErroLLM("sem resposta após todas as tentativas")
