@@ -4,27 +4,21 @@ from analista.carga.carregar import garantir_carga
 from analista.config import carregar_config
 
 
+PERGUNTAS = [
+    "Qual foi a margem líquida da Petrobras em 2024?",
+    "Quanto a receita da Petrobras variou de 2022 para 2023?",
+    "Qual foi a receita da Automob em 2023?",
+]
+
 def main() -> None:
     config = carregar_config()
 
     with conectar(config) as conexao:
         criar_esquema(conexao)
         garantir_carga(conexao)
-        pergunta = "Qual é o código CVM e o setor de atividade da Petrobras?"
-        print(executar_agente(config, conexao, pergunta))
-
-        pergunta = "Qual o setor de atividade do itau?"
-        print(executar_agente(config, conexao, pergunta))
-
-        pergunta = "Qual o código CVM da empresa Xablau Tecnologia?"
-        print(executar_agente(config, conexao, pergunta))
-
-        pergunta = (
-            "A receita de uma empresa foi de 1.250.000 em 2023 e de 1.480.000 em 2024. "
-            "O lucro líquido de 2024 foi de 162.800. "
-            "Qual foi o crescimento da receita e qual a margem líquida de 2024?"
-        )
-        print(executar_agente(config, conexao, pergunta))
+        for pergunta in PERGUNTAS:
+            print(f"\n> {pergunta}")
+            print(executar_agente(config, conexao, pergunta))
 
 
 if __name__ == "__main__":
